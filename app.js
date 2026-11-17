@@ -1,5 +1,6 @@
 (() => {
   const STORAGE_KEY = "sppg_suhu_monitoring_v1";
+  const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbx_TUdaGQvsxvaJiiN4QtUpB0O51aHpyOeru3wZRH44uEtUKN7dSywnJeLfguH5ZfxXEQ/exec";
 
   const ROOM_FORMS = [
     {
@@ -89,7 +90,7 @@
         return {
           month: parsed.month || getDefaultMonthName(),
           year: parsed.year || 2026,
-          gasUrl: parsed.gasUrl || "",
+          gasUrl: parsed.gasUrl || DEFAULT_GAS_URL,
           settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
           periods: parsed.periods || {},
         };
@@ -100,7 +101,7 @@
     return {
       month: getDefaultMonthName(),
       year: 2026,
-      gasUrl: "",
+      gasUrl: DEFAULT_GAS_URL,
       settings: { ...DEFAULT_SETTINGS },
       periods: {},
     };
@@ -402,8 +403,8 @@
     const noteEntries = Object.entries(pData.notes || {});
     const noteSummaryHtml = noteEntries.length
       ? `<div class="ket-inline-list"><strong>Catatan Ket:</strong> ${noteEntries
-          .map(([k, v]) => `Tgl ${k.replace("-", " ")}: ${escapeHtml(v)}`)
-          .join(" • ")}</div>`
+        .map(([k, v]) => `Tgl ${k.replace("-", " ")}: ${escapeHtml(v)}`)
+        .join(" • ")}</div>`
       : "";
 
     return `
@@ -1099,14 +1100,24 @@
       const json = safeParseGasResponse(await res.text());
       if (json.status !== "ok") throw new Error(json.message || "Gagal memuat data");
 
+      let changed = false;
       if (json.settings) {
-        state.settings = { ...DEFAULT_SETTINGS, ...json.settings };
+        const mergedSettings = { ...DEFAULT_SETTINGS, ...json.settings };
+        if (JSON.stringify(mergedSettings) !== JSON.stringify(state.settings)) {
+          state.settings = mergedSettings;
+          changed = true;
+        }
       }
       if (json.periodData) {
-        state.periods[period] = json.periodData;
+        if (JSON.stringify(json.periodData) !== JSON.stringify(state.periods[period])) {
+          state.periods[period] = json.periodData;
+          changed = true;
+        }
       }
-      saveState(true);
-      renderAll();
+      if (changed) {
+        saveState(true);
+        renderAll();
+      }
       setCloudStatus("online", "Tersinkron");
       if (showSuccessToast) showToast("Data berhasil dimuat dari Google Sheet");
     } catch (err) {
@@ -1143,7 +1154,10 @@
   function scheduleCloudSave() {
     setCloudStatus("syncing", "Menyimpan...");
     clearTimeout(cloudSaveTimer);
-    cloudSaveTimer = setTimeout(pushToCloud, 800);
+    cloudSaveTimer = setTimeout(async () => {
+      cloudSaveTimer = null;
+      await pushToCloud();
+    }, 800);
   }
 
   const openCloudModal = () => {
@@ -1213,4 +1227,18 @@
   } else {
     setCloudStatus("offline", "Google Sheet");
   }
+
+  // Auto-sync berkala & saat tab kembali aktif
+  const tryBackgroundSync = () => {
+    if (!state.gasUrl || cloudSaveTimer) return;
+    const activeEl = document.activeElement;
+    if (activeEl && /^(INPUT|TEXTAREA|SELECT)$/.test(activeEl.tagName)) return;
+    syncFromCloud(false);
+  };
+
+  window.addEventListener("focus", tryBackgroundSync);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") tryBackgroundSync();
+  });
+  setInterval(tryBackgroundSync, 8000);
 })();
