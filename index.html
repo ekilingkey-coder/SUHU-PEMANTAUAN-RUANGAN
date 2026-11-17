@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pemantauan Suhu Ruangan & Gudang — SPPG Pandeglang Patia Ciawi</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Top Control Bar (Hidden when printing) -->
+  <header class="app-header no-print">
+    <div class="app-header-inner">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">🌡️</div>
+        <div>
+          <h1>Pemantauan Suhu SPPG</h1>
+          <p>Satuan Pelayanan Pemenuhan Gizi (SPPG) Pandeglang Patia Ciawi</p>
+        </div>
+      </div>
+
+      <div class="period-controls">
+        <label class="field-inline">
+          <span>Bulan</span>
+          <select id="globalMonth">
+            <option value="Januari">Januari</option>
+            <option value="Februari">Februari</option>
+            <option value="Maret">Maret</option>
+            <option value="April">April</option>
+            <option value="Mei">Mei</option>
+            <option value="Juni">Juni</option>
+            <option value="Juli">Juli</option>
+            <option value="Agustus">Agustus</option>
+            <option value="September">September</option>
+            <option value="Oktober">Oktober</option>
+            <option value="November">November</option>
+            <option value="Desember">Desember</option>
+          </select>
+        </label>
+        <label class="field-inline">
+          <span>Tahun</span>
+          <input type="number" id="globalYear" min="2020" max="2100" value="2026" />
+        </label>
+      </div>
+
+      <div class="header-actions">
+        <button type="button" class="btn btn-secondary" id="btnCloudSync" title="Hubungkan & sinkronkan dengan Google Sheets">
+          <span id="cloudStatusDot" class="status-dot offline"></span>
+          <span id="cloudStatusText">Google Sheet</span>
+        </button>
+        <button type="button" class="btn btn-secondary" id="btnSettings" title="Ubah nama petugas & penanggung jawab">
+          ⚙️ Pejabat
+        </button>
+        <button type="button" class="btn btn-secondary" id="btnSample" title="Isi contoh data untuk simulasi">
+          ✨ Contoh Data
+        </button>
+        <button type="button" class="btn btn-secondary" id="btnClear" title="Kosongkan data bulan ini">
+          🗑️ Reset
+        </button>
+        <button type="button" class="btn btn-outline" id="btnExportCsv" title="Unduh CSV sesuai format template asli">
+          📄 Export CSV
+        </button>
+        <button type="button" class="btn btn-outline" id="btnExportExcel" title="Unduh file Excel (.xls) terformat">
+          📊 Export Excel
+        </button>
+        <button type="button" class="btn btn-primary" id="btnPrint">
+          🖨️ Cetak / PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="tab-bar" role="tablist">
+      <button type="button" class="tab-btn active" data-tab="gudang-kering" role="tab">
+        1. Gudang Kering <span class="badge">Target 20–25℃</span>
+      </button>
+      <button type="button" class="tab-btn" data-tab="pemorsian" role="tab">
+        2. Pemorsian <span class="badge">Target 22–30℃</span>
+      </button>
+      <button type="button" class="tab-btn" data-tab="pengolahan" role="tab">
+        3. Pengolahan / Dapur <span class="badge">Target 22–30℃</span>
+      </button>
+      <button type="button" class="tab-btn" data-tab="gudang-basah" role="tab">
+        4. Gudang Basah <span class="badge">Chiller &amp; Freezer</span>
+      </button>
+      <button type="button" class="tab-btn" data-tab="all" role="tab">
+        📑 Semua Form (Preview Cetak)
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="main-container">
+    <!-- Quick Input Panel (Hidden on print & hidden on "all" tab) -->
+    <section id="quickInputPanel" class="quick-panel no-print"></section>
+
+    <!-- Rendered Template Sheets -->
+    <div id="sheetsContainer" class="sheets-container"></div>
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal hidden no-print" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="settingsTitle">Pengaturan Identitas &amp; Pejabat</h2>
+        <button type="button" class="icon-close" id="closeSettings" aria-label="Tutup">✕</button>
+      </div>
+      <form id="settingsForm" class="modal-body">
+        <label class="form-group">
+          <span>Nama Unit / Satuan</span>
+          <input type="text" id="setUnitName" required />
+        </label>
+        <div class="form-row">
+          <label class="form-group">
+            <span>Diperiksa Oleh (Jabatan)</span>
+            <input type="text" id="setInspectorRole" required />
+          </label>
+          <label class="form-group">
+            <span>Nama Pengawas Gizi</span>
+            <input type="text" id="setInspectorName" required />
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="form-group">
+            <span>Penanggung Jawab (Jabatan)</span>
+            <input type="text" id="setLeadRole" required />
+          </label>
+          <label class="form-group">
+            <span>Nama Kepala SPPG</span>
+            <input type="text" id="setLeadName" required />
+          </label>
+        </div>
+        <label class="form-group">
+          <span>NIP Penanggung Jawab (Opsional)</span>
+          <input type="text" id="setLeadNip" placeholder="Kosongkan jika belum ada" />
+        </label>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelSettings">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan Pengaturan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Google Sheet Modal -->
+  <div id="cloudModal" class="modal hidden no-print" role="dialog" aria-modal="true" aria-labelledby="cloudTitle">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="cloudTitle">Hubungkan ke Google Sheets</h2>
+        <button type="button" class="icon-close" id="closeCloud" aria-label="Tutup">✕</button>
+      </div>
+      <form id="cloudForm" class="modal-body">
+        <p class="modal-desc">
+          Tempel <strong>Web App URL</strong> dari Google Apps Script (file <code>google-apps-script.gs</code>) agar semua data otomatis tersimpan dan tersinkronisasi antar perangkat.
+        </p>
+        <label class="form-group">
+          <span>Web App URL (Apps Script)</span>
+          <input type="url" id="cloudUrlInput" placeholder="https://script.google.com/macros/s/.../exec" />
+        </label>
+        <div id="cloudTestResult" class="cloud-test-result hidden"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnDisconnectCloud">Putuskan</button>
+          <button type="button" class="btn btn-outline" id="btnPullCloud">⬇️ Ambil dari Sheet</button>
+          <button type="submit" class="btn btn-primary">Simpan &amp; Hubungkan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast no-print" role="status" aria-live="polite"></div>
+
+  <script src="xlsx-export.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
