@@ -108,6 +108,7 @@
   }
 
   let cloudSaveTimer = null;
+  let isPushing = false;
   function saveState(skipCloud = false) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -1129,6 +1130,7 @@
 
   async function pushToCloud() {
     if (!state.gasUrl) return;
+    isPushing = true;
     setCloudStatus("syncing", "Menyimpan...");
     try {
       const res = await fetch(state.gasUrl, {
@@ -1148,6 +1150,8 @@
     } catch (err) {
       console.error("Cloud save error:", err);
       setCloudStatus("error", "Gagal Sync");
+    } finally {
+      isPushing = false;
     }
   }
 
@@ -1230,7 +1234,7 @@
 
   // Auto-sync berkala & saat tab kembali aktif
   const tryBackgroundSync = () => {
-    if (!state.gasUrl || cloudSaveTimer) return;
+    if (!state.gasUrl || cloudSaveTimer || isPushing) return;
     const activeEl = document.activeElement;
     if (activeEl && /^(INPUT|TEXTAREA|SELECT)$/.test(activeEl.tagName)) return;
     syncFromCloud(false);
